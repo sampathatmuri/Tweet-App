@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.tweetapp.controller.TweetControllerTest
+-------------------------------------------------------------------------------
+Tests run: 32, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 150.918 s - in com.tweetapp.controller.TweetControllerTest

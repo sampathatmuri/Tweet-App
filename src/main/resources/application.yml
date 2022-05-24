@@ -1,0 +1,29 @@
+jwt:
+  secret: hackfse1
+jwttoken:
+  expiration: 180000
+logging:
+  file:
+    name: D:/elk_logging.log
+server:
+  error:
+    include-stacktrace: never
+  port: 8082
+  servlet:
+    context-path: /api/v1.0/tweets
+spring:
+  data:
+    mongodb:
+      auto-index-creation: true
+      database: spring
+      uri: mongodb+srv://sampath:sam123@fse.xqvef.mongodb.net/spring?retryWrites=true&w=majority
+management:
+  endpoint:
+    metrics:
+      enabled: true
+    prometheus:
+      enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: '*'

@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TweetServiceImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">FSE-TWEET-APP</a> &gt; <a href="index.source.html" class="el_package">com.tweetapp.service</a> &gt; <span class="el_source">TweetServiceImpl.java</span></div><h1>TweetServiceImpl.java</h1><pre class="source lang-java linenums">package com.tweetapp.service;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.tweetapp.document.Tags;
+import com.tweetapp.document.Tweet;
+import com.tweetapp.dto.ReplyDto;
+import com.tweetapp.exception.CustomException;
+import com.tweetapp.repository.TagRepository;
+import com.tweetapp.repository.TweetRepository;
+
+@Service
+public class TweetServiceImpl implements TweetService {
+
+<span class="fc" id="L25">	private static final Logger logger = LoggerFactory.getLogger(TweetServiceImpl.class);</span>
+
+	private static final String INVALID_PAYLOAD = &quot;Please Enter all the mandatory fields&quot;;
+
+	@Autowired
+	private TweetRepository tweetRepository;
+
+	@Autowired
+	private TagRepository tagRepository;
+
+	public TweetServiceImpl(TweetRepository tweetRepository, TagRepository tagRepository) {
+<span class="fc" id="L36">		super();</span>
+<span class="fc" id="L37">		this.tweetRepository = tweetRepository;</span>
+<span class="fc" id="L38">		this.tagRepository = tagRepository;</span>
+<span class="fc" id="L39">	}</span>
+
+	@Transactional
+	@Override
+	public Tweet postTweet(Tweet tweet) {
+<span class="fc" id="L44">		saveAllTags(tweet.getMessage().toLowerCase());</span>
+<span class="fc" id="L45">		tweet.setCreatedAt(LocalDateTime.now());</span>
+<span class="fc" id="L46">		return tweetRepository.save(tweet);</span>
+	}
+
+	@Override
+	public List&lt;Tweet&gt; findAllTweets() {
+<span class="fc" id="L51">		return tweetRepository.findAll();</span>
+	}
+
+	@Override
+	public List&lt;Tweet&gt; findAllTweetsOfAUser(String emailId) {
+<span class="fc" id="L56">		return tweetRepository.findAllByEmailId(emailId);</span>
+	}
+
+	@Override
+	public Tweet findByTweetId(String tweetId) {
+<span class="fc" id="L61">		return tweetRepository.findByTweetId(tweetId);</span>
+	}
+
+	// Need to change, logic not finished
+	@Transactional
+	@Override
+	public Tweet addReply(Tweet tweet, ReplyDto replyDto) {
+<span class="fc" id="L68">		replyDto.setCreatedAt(LocalDateTime.now());</span>
+<span class="fc" id="L69">		List&lt;ReplyDto&gt; replies = tweet.getReplies();</span>
+<span class="fc bfc" id="L70" title="All 2 branches covered.">		if (tweet.getReplies() == null) {</span>
+<span class="fc" id="L71">			replies = Arrays.asList(replyDto);</span>
+		} else {
+<span class="fc" id="L73">			replies.add(replyDto);</span>
+		}
+<span class="fc" id="L75">		tweet.setReplies(replies);</span>
+<span class="fc" id="L76">		return tweetRepository.save(tweet);</span>
+	}
+
+	@Transactional
+	@Override
+	public Tweet updateTweet(Tweet tweet, String message) {
+<span class="fc" id="L82">		saveAllTags(message.toLowerCase());</span>
+<span class="fc" id="L83">		tweet.setMessage(message);</span>
+<span class="fc" id="L84">		tweet.setCreatedAt(LocalDateTime.now());</span>
+<span class="fc" id="L85">		return tweetRepository.save(tweet);</span>
+
+	}
+
+	@Override
+	public Tweet updateLikeCount(Tweet tweet) {
+<span class="fc" id="L91">		tweet.setLikeCount(tweet.getLikeCount() + 1);</span>
+<span class="fc" id="L92">		return tweetRepository.save(tweet);</span>
+	}
+
+	@Override
+	public Tweet deleteTweet(Tweet tweet) {
+<span class="fc" id="L97">		tweetRepository.delete(tweet);</span>
+<span class="fc" id="L98">		return tweet;</span>
+	}
+
+	@Override
+	public Boolean validatePayload(String message) {
+<span class="fc bfc" id="L103" title="All 2 branches covered.">		Boolean isPayloadValid = !message.isBlank();</span>
+<span class="fc bfc" id="L104" title="All 2 branches covered.">		if (Boolean.FALSE.equals(isPayloadValid)) {</span>
+<span class="fc" id="L105">			logger.info(&quot;Invalid add tweet request payload&quot;);</span>
+<span class="fc" id="L106">			throw new CustomException(INVALID_PAYLOAD);</span>
+		}
+<span class="fc" id="L108">		return true;</span>
+	}
+
+	@Override
+	public List&lt;Tweet&gt; getTrendingTweets(String tagName) {
+<span class="fc" id="L113">		return tweetRepository.getTrendingTweets(&quot;#&quot; + tagName);</span>
+	}
+
+	@Override
+	public List&lt;Tags&gt; findAllTags() {
+<span class="fc" id="L118">		return tagRepository.findAllByOrderByCountDesc();</span>
+	}
+
+	public void saveAllTags(String message) {
+<span class="fc" id="L122">		List&lt;String&gt; allTags = getAllTags(message);</span>
+<span class="fc bfc" id="L123" title="All 2 branches covered.">		for (String tags : allTags) {</span>
+<span class="fc" id="L124">			Tags tag = tagRepository.findByTagName(tags);</span>
+<span class="pc bpc" id="L125" title="3 of 4 branches missed.">			if (tag != null &amp;&amp; tag.getTagName().equalsIgnoreCase(tags)) {</span>
+<span class="nc" id="L126">				tag.setCount(tag.getCount() + 1);</span>
+<span class="nc" id="L127">				tagRepository.save(tag);</span>
+			} else {
+<span class="fc" id="L129">				tagRepository.save(new Tags(tags, 1));</span>
+			}
+<span class="fc" id="L131">		}</span>
+<span class="fc" id="L132">	}</span>
+
+	private List&lt;String&gt; getAllTags(String message) {
+
+<span class="fc" id="L136">		String filteredMessage = message.replaceAll(&quot;[,.\\n\\t]&quot;, &quot; &quot;);</span>
+<span class="fc" id="L137">		String[] splittedMessage = filteredMessage.split(&quot; &quot;);</span>
+<span class="fc" id="L138">		HashSet&lt;String&gt; result = new HashSet&lt;&gt;();</span>
+<span class="fc bfc" id="L139" title="All 2 branches covered.">		for (String word : splittedMessage) {</span>
+<span class="pc bpc" id="L140" title="1 of 4 branches missed.">			if (word.contains(&quot;#&quot;) &amp;&amp; word.length() &gt;= 2) {</span>
+<span class="fc" id="L141">				String[] m = word.split(&quot;#&quot;);</span>
+<span class="fc bfc" id="L142" title="All 2 branches covered.">				for (String k : m) {</span>
+<span class="pc bpc" id="L143" title="1 of 4 branches missed.">					if (k.length() &gt; 0 &amp;&amp; !result.contains(k)) {</span>
+<span class="fc" id="L144">						result.add(&quot;#&quot; + k);</span>
+					}
+
+				}
+
+			}
+
+		}
+<span class="fc" id="L152">		return new ArrayList&lt;&gt;(result);</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

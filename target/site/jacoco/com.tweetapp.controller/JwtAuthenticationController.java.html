@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JwtAuthenticationController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">FSE-TWEET-APP</a> &gt; <a href="index.source.html" class="el_package">com.tweetapp.controller</a> &gt; <span class="el_source">JwtAuthenticationController.java</span></div><h1>JwtAuthenticationController.java</h1><pre class="source lang-java linenums">package com.tweetapp.controller;
+
+import javax.validation.Valid;
+
+import org.modelmapper.ModelMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.tweetapp.document.User;
+import com.tweetapp.dto.AuthRequest;
+import com.tweetapp.dto.AuthResponse;
+import com.tweetapp.dto.SignupRequest;
+import com.tweetapp.exception.AuthenticationException;
+import com.tweetapp.exception.CustomException;
+import com.tweetapp.service.EmailService;
+import com.tweetapp.service.JwtUserDetailsService;
+import com.tweetapp.service.UserService;
+import com.tweetapp.util.JwtTokenUtil;
+
+import io.swagger.annotations.ApiOperation;
+import io.swagger.annotations.ApiResponse;
+import io.swagger.annotations.ApiResponses;
+
+@CrossOrigin(origins = &quot;*&quot;)
+@RestController
+<span class="fc" id="L40">public class JwtAuthenticationController {</span>
+
+<span class="fc" id="L42">	private static final Logger logger = LoggerFactory.getLogger(JwtAuthenticationController.class);</span>
+
+	@Autowired
+	private AuthenticationManager authenticationManager;
+
+	@Autowired
+	private JwtTokenUtil jwtTokenUtil;
+
+	@Autowired
+	private JwtUserDetailsService userDetailsService;
+
+	@Autowired
+	private UserService userService;
+
+	@Autowired
+	private PasswordEncoder passwordEncoder;
+	
+	@Autowired
+	private EmailService emailService;
+
+	@ApiOperation(value = &quot;createAuthenticationToken&quot;, notes = &quot;This method helps user to login to the application&quot;, response = AuthResponse.class)
+	@ApiResponses(value = { @ApiResponse(code = 200, message = &quot;Login Successful!!&quot;),
+			@ApiResponse(code = 400, message = &quot;Login Failed!!&quot;) })
+	@PostMapping(&quot;/login&quot;)
+	public ResponseEntity&lt;AuthResponse&gt; createAuthenticationToken(@RequestBody AuthRequest authenticationRequest)
+			throws Exception {
+		// authenticate the user
+<span class="fc" id="L69">		authenticate(authenticationRequest.getEmailId(), authenticationRequest.getPassword());</span>
+
+<span class="fc" id="L71">		UserDetails userDetails = userDetailsService.loadUserByUsername(authenticationRequest.getEmailId());</span>
+
+<span class="fc" id="L73">		logger.info(&quot;Generating JWT token...&quot;);</span>
+<span class="fc" id="L74">		String token = jwtTokenUtil.generateToken(userDetails);</span>
+<span class="fc" id="L75">		logger.info(&quot;Token generated&quot;);</span>
+<span class="fc" id="L76">		logger.info(&quot;Login Successful!!&quot;);</span>
+<span class="fc" id="L77">		return ResponseEntity.ok(new AuthResponse(token));</span>
+	}
+
+	@ApiOperation(value = &quot;registerUser&quot;, notes = &quot;This method helps user to register to the application&quot;, response = String.class)
+	@ApiResponses(value = { @ApiResponse(code = 200, message = &quot;Registration Successful!!&quot;),
+			@ApiResponse(code = 400, message = &quot;Registration Failed!!&quot;) })
+	@PostMapping(&quot;/register&quot;)
+	public ResponseEntity&lt;String&gt; registerUser(@Valid @RequestBody() SignupRequest signupRequest) throws Exception {
+<span class="fc" id="L85">		logger.info(&quot;Valid payload&quot;);</span>
+<span class="fc" id="L86">		logger.info(&quot;Checking if user already exists&quot;);</span>
+<span class="fc" id="L87">		User user = userService.findUserByEmailId(signupRequest.getEmailId());</span>
+<span class="fc bfc" id="L88" title="All 2 branches covered.">		if (user != null) {</span>
+<span class="fc" id="L89">			logger.info(&quot;Registration failed as Email Id Already Exists&quot;);</span>
+<span class="fc" id="L90">			throw new CustomException(&quot;Email Id Already Exists&quot;);</span>
+		}
+<span class="fc" id="L92">		logger.info(&quot;Valid new User&quot;);</span>
+<span class="fc" id="L93">		logger.info(&quot;Registering the user with emailId {} &quot;, signupRequest.getEmailId());</span>
+<span class="fc" id="L94">		ModelMapper mapper = new ModelMapper();</span>
+<span class="fc" id="L95">		user = mapper.map(signupRequest, User.class);</span>
+<span class="fc" id="L96">		user.setPassword(passwordEncoder.encode(signupRequest.getPassword()));</span>
+<span class="fc" id="L97">		userService.registerUser(user);</span>
+<span class="fc" id="L98">		logger.info(&quot;User signed up successfully!!&quot;);</span>
+<span class="fc" id="L99">		return ResponseEntity.ok(&quot;User signed up successfully&quot;);</span>
+	}
+
+	private void authenticate(String emailId, String password) throws AuthenticationException {
+<span class="fc" id="L103">		logger.info(&quot;Authenticating the user...&quot;);</span>
+		try {
+<span class="fc" id="L105">			Authentication authentication = authenticationManager</span>
+<span class="fc" id="L106">					.authenticate(new UsernamePasswordAuthenticationToken(emailId, password));</span>
+<span class="fc" id="L107">			SecurityContextHolder.getContext().setAuthentication(authentication);</span>
+<span class="fc" id="L108">			logger.info(&quot;Authentication successful&quot;);</span>
+<span class="fc" id="L109">		} catch (BadCredentialsException e) {</span>
+<span class="fc" id="L110">			logger.info(&quot;Authentication failed&quot;);</span>
+<span class="fc" id="L111">			throw new AuthenticationException(&quot;Credentials are invalid&quot;, e);</span>
+<span class="fc" id="L112">		}</span>
+<span class="fc" id="L113">	}</span>
+	
+	@PostMapping(&quot;/sendOtp/{emailId}&quot;)
+	public ResponseEntity&lt;String&gt; sendEmail(@PathVariable String emailId,@RequestBody String otp) {
+<span class="nc" id="L117">		logger.info(&quot;Verifying that sendOTP request belongs to existing user&quot;);</span>
+<span class="nc" id="L118">		userService.validateIfEmailIdExists(emailId);</span>
+<span class="nc" id="L119">		emailService.sendTextEmail(emailId,otp);</span>
+<span class="nc" id="L120">		return ResponseEntity.ok(&quot;OTP sent successully&quot;);</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

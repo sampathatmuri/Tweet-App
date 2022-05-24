@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JwtRequestFilter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">FSE-TWEET-APP</a> &gt; <a href="index.source.html" class="el_package">com.tweetapp.configuration</a> &gt; <span class="el_source">JwtRequestFilter.java</span></div><h1>JwtRequestFilter.java</h1><pre class="source lang-java linenums">package com.tweetapp.configuration;
+
+import java.io.IOException;
+
+import javax.servlet.FilterChain;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import com.tweetapp.service.JwtUserDetailsService;
+import com.tweetapp.util.JwtTokenUtil;
+
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.MalformedJwtException;
+import io.jsonwebtoken.SignatureException;
+
+@Component
+<span class="fc" id="L29">public class JwtRequestFilter extends OncePerRequestFilter {</span>
+
+<span class="fc" id="L31">	private static final Logger log = LoggerFactory.getLogger(JwtRequestFilter.class);</span>
+
+	@Autowired
+	private JwtUserDetailsService jwtUserDetailsService;
+
+	@Autowired
+	private JwtTokenUtil jwtTokenUtil;
+
+	private static final String ERROR = &quot;error&quot;;
+
+	@Override
+	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+			throws ServletException, IOException, UsernameNotFoundException {
+
+<span class="fc" id="L45">		final String requestTokenHeader = request.getHeader(&quot;Authorization&quot;);</span>
+
+<span class="fc" id="L47">		String username = null;</span>
+<span class="fc" id="L48">		String jwtToken = null;</span>
+		// JWT Token is in the form &quot;Bearer token&quot;. Remove Bearer word and get
+		// only the Token
+<span class="fc" id="L51">		log.info(&quot;Checking for Authorization header in request&quot;);</span>
+<span class="fc bfc" id="L52" title="All 2 branches covered.">		if (requestTokenHeader != null) {</span>
+<span class="fc" id="L53">			log.warn(&quot;Authorization header found&quot;);</span>
+<span class="fc" id="L54">			log.info(&quot;Validating  the JWT token&quot;);</span>
+<span class="pc bpc" id="L55" title="1 of 2 branches missed.">			if (requestTokenHeader.startsWith(&quot;Bearer &quot;)) {</span>
+<span class="fc" id="L56">				log.info(&quot;JWT Token format is Valid&quot;);</span>
+<span class="fc" id="L57">				jwtToken = requestTokenHeader.substring(7);</span>
+				try {
+<span class="fc" id="L59">					username = jwtTokenUtil.getUsernameFromToken(jwtToken);</span>
+<span class="fc" id="L60">				} catch (IllegalArgumentException e) {</span>
+<span class="fc" id="L61">					log.warn(&quot;Unable to get JWT Token&quot;);</span>
+<span class="fc" id="L62">					request.setAttribute(ERROR, &quot;Session expired&quot;);</span>
+<span class="fc" id="L63">				} catch (ExpiredJwtException e) {</span>
+<span class="fc" id="L64">					log.warn(&quot;JWT Token has expired&quot;);</span>
+<span class="fc" id="L65">					request.setAttribute(ERROR, &quot;Session expired&quot;);</span>
+<span class="fc" id="L66">				} catch (MalformedJwtException | SignatureException e) {</span>
+<span class="fc" id="L67">					log.warn(&quot;Malformed JWT Token&quot;);</span>
+<span class="fc" id="L68">					request.setAttribute(ERROR, &quot;Session expired&quot;);</span>
+<span class="fc" id="L69">				}</span>
+			} else {
+<span class="nc" id="L71">				log.warn(&quot;JWT Token does not begin with Bearer String&quot;);</span>
+<span class="nc" id="L72">				request.setAttribute(ERROR, &quot;Provide JWT Token&quot;);</span>
+			}
+		} else {
+<span class="fc" id="L75">			log.warn(&quot;No authorization header found&quot;);</span>
+<span class="fc" id="L76">			request.setAttribute(ERROR, &quot;Provide authorization header&quot;);</span>
+		}
+
+		// Once we get the token validate it.
+<span class="pc bpc" id="L80" title="1 of 4 branches missed.">		if (username != null &amp;&amp; SecurityContextHolder.getContext().getAuthentication() == null) {</span>
+<span class="fc" id="L81">			UserDetails userDetails = this.jwtUserDetailsService.loadUserByUsername(username);</span>
+
+			// if token is valid configure Spring Security to manually set
+			// authentication
+<span class="fc" id="L85">			Boolean tokenValidated = jwtTokenUtil.validateToken(jwtToken, userDetails);</span>
+<span class="pc bpc" id="L86" title="1 of 2 branches missed.">			if (Boolean.TRUE.equals(tokenValidated)) {</span>
+<span class="fc" id="L87">				log.info(&quot;JWT token is valid&quot;);</span>
+<span class="fc" id="L88">				UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken = new UsernamePasswordAuthenticationToken(</span>
+<span class="fc" id="L89">						userDetails, null, userDetails.getAuthorities());</span>
+<span class="fc" id="L90">				usernamePasswordAuthenticationToken</span>
+<span class="fc" id="L91">						.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));</span>
+				// After setting the Authentication in the context, we specify
+				// that the current user is authenticated. So it passes the
+				// Spring Security Configurations successfully.
+<span class="fc" id="L95">				SecurityContextHolder.getContext().setAuthentication(usernamePasswordAuthenticationToken);</span>
+<span class="fc" id="L96">				log.info(&quot;Authentication Successful!!&quot;);</span>
+			}
+		}
+<span class="fc" id="L99">		chain.doFilter(request, response);</span>
+<span class="fc" id="L100">	}</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

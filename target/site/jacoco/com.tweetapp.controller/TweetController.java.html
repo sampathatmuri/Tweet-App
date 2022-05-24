@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TweetController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">FSE-TWEET-APP</a> &gt; <a href="index.source.html" class="el_package">com.tweetapp.controller</a> &gt; <span class="el_source">TweetController.java</span></div><h1>TweetController.java</h1><pre class="source lang-java linenums">package com.tweetapp.controller;
+
+import java.util.List;
+
+import javax.validation.Valid;
+
+import org.modelmapper.ModelMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.tweetapp.document.Tags;
+import com.tweetapp.document.Tweet;
+import com.tweetapp.dto.ReplyDto;
+import com.tweetapp.dto.TweetDto;
+import com.tweetapp.exception.CustomException;
+import com.tweetapp.service.TweetService;
+import com.tweetapp.service.UserService;
+
+import io.swagger.annotations.ApiOperation;
+import io.swagger.annotations.ApiParam;
+import io.swagger.annotations.ApiResponse;
+import io.swagger.annotations.ApiResponses;
+
+@CrossOrigin(origins = &quot;*&quot;)
+@RestController
+<span class="fc" id="L38">public class TweetController {</span>
+
+<span class="fc" id="L40">	private static final Logger logger = LoggerFactory.getLogger(TweetController.class);</span>
+
+	@Autowired
+	private TweetService tweetService;
+
+	@Autowired
+	private UserService userService;
+
+	@Autowired
+	private ModelMapper modelMapper;
+
+	private static final String VALIDATION_MESSAGE = &quot;Valid payload&quot;;
+
+	private static final String TWEET_DOESNT_EXIST_WITH_ID = &quot;No tweet exists with id : {}&quot;;
+
+	@ApiOperation(value = &quot;saveTweet&quot;, notes = &quot;This method helps user to save tweet&quot;, response = Tweet.class)
+	@ApiResponses(value = { @ApiResponse(code = 200, message = &quot;Tweet saved Successfully!!&quot;),
+			@ApiResponse(code = 400, message = &quot;Tweet unsaved!!&quot;) })
+	@PostMapping(&quot;/{emailId}/add&quot;)
+	public ResponseEntity&lt;Tweet&gt; saveTweet(
+			@ApiParam(value = &quot;emailId&quot;, name = &quot;emailId&quot;, type = &quot;String&quot;, example = &quot;abc@gmail.com&quot;, required = true) @PathVariable String emailId,
+			@Valid @RequestBody TweetDto tweetModel,
+			@RequestHeader(name = &quot;Authorization&quot;, required = true) String authHeader) {
+<span class="fc" id="L63">		logger.info(&quot;Validating add tweet request payload and checking if user exists&quot;);</span>
+<span class="fc" id="L64">		tweetService.validatePayload(tweetModel.getMessage());</span>
+<span class="fc" id="L65">		logger.info(VALIDATION_MESSAGE);</span>
+<span class="fc" id="L66">		userService.validateEmailFromAuthHeader(emailId, authHeader.substring(7));</span>
+<span class="fc" id="L67">		logger.info(&quot;Saving tweet for the user with emailId {} &quot;, emailId);</span>
+<span class="fc" id="L68">		tweetModel.setEmailId(emailId);</span>
+<span class="fc" id="L69">		Tweet tweet = tweetService.postTweet(modelMapper.map(tweetModel, Tweet.class));</span>
+<span class="fc" id="L70">		logger.info(&quot;Tweet saved successfully&quot;);</span>
+<span class="fc" id="L71">		return ResponseEntity.ok(tweet);</span>
+	}
+
+	@GetMapping(&quot;/all&quot;)
+	@ApiOperation(value = &quot;getAllTweets&quot;, notes = &quot;This method helps user to get all tweets&quot;, response = Tweet.class)
+	public ResponseEntity&lt;List&lt;Tweet&gt;&gt; getAllTweets() {
+<span class="fc" id="L77">		logger.info(&quot;Fetching all tweets...&quot;);</span>
+<span class="fc" id="L78">		List&lt;Tweet&gt; tweets = tweetService.findAllTweets();</span>
+<span class="fc bfc" id="L79" title="All 2 branches covered.">		if (tweets == null) {</span>
+<span class="fc" id="L80">			logger.info(&quot;No tweets found&quot;);</span>
+<span class="fc" id="L81">			throw new CustomException(&quot;No tweets found&quot;);</span>
+		}
+<span class="fc" id="L83">		logger.info(&quot;Tweets found : {}&quot;, tweets);</span>
+<span class="fc" id="L84">		return ResponseEntity.ok(tweets);</span>
+	}
+
+	@GetMapping(&quot;/username/{emailId}&quot;)
+	@ApiOperation(value = &quot;getAllTweetsOfAUser&quot;, notes = &quot;This method helps user to get all tweets of a user&quot;, response = Tweet.class)
+	@ApiResponses(value = { @ApiResponse(code = 200, message = &quot;Please find all the tweets posted by the user&quot;),
+			@ApiResponse(code = 400, message = &quot;Tweets not yet posted by the user&quot;) })
+	public ResponseEntity&lt;List&lt;Tweet&gt;&gt; getAllTweetsOfAUser(
+			@ApiParam(value = &quot;emailId&quot;, name = &quot;emailId&quot;, type = &quot;String&quot;, example = &quot;abc@gmail.com&quot;, required = true) @PathVariable String emailId) {
+<span class="fc" id="L93">		logger.info(&quot;Validating if user exists&quot;);</span>
+<span class="fc" id="L94">		userService.validateIfEmailIdExists(emailId);</span>
+<span class="fc" id="L95">		logger.info(&quot;Fetching all tweet of user {}&quot;, emailId);</span>
+<span class="fc" id="L96">		List&lt;Tweet&gt; tweets = tweetService.findAllTweetsOfAUser(emailId);</span>
+<span class="pc bpc" id="L97" title="1 of 4 branches missed.">		if (tweets == null || tweets.isEmpty()) {</span>
+<span class="fc" id="L98">			logger.info(&quot;No tweets posted by the user: {}&quot;, emailId);</span>
+<span class="fc" id="L99">			throw new CustomException(&quot;No tweets posted by the user:&quot; + emailId);</span>
+		}
+<span class="fc" id="L101">		logger.info(&quot;Tweets found : {}&quot;, tweets);</span>
+<span class="fc" id="L102">		return ResponseEntity.ok(tweets);</span>
+	}
+
+	@PutMapping(&quot;/{emailId}/update/{tweetId}&quot;)
+	@ApiOperation(value = &quot;UpdateTweet&quot;, notes = &quot;This method helps user to update his tweet&quot;, response = Tweet.class)
+	@ApiResponses(value = { @ApiResponse(code = 200, message = &quot;Password updated sucessfully&quot;),
+			@ApiResponse(code = 400, message = &quot;password failed to update&quot;) })
+	public ResponseEntity&lt;Tweet&gt; updateTweet(
+			@ApiParam(value = &quot;emailId&quot;, name = &quot;emailId&quot;, type = &quot;String&quot;, example = &quot;abc@gmail.com&quot;, required = true) @PathVariable String emailId,
+			@ApiParam(value = &quot;tweetId&quot;, name = &quot;tweetId&quot;, type = &quot;String&quot;, example = &quot;SAM123&quot;, required = true) @PathVariable String tweetId,
+			@Valid @RequestBody TweetDto tweetModel,
+			@RequestHeader(name = &quot;Authorization&quot;, required = true) String authHeader) {
+<span class="fc" id="L114">		logger.info(&quot;Validating update tweet request payload and checking if user exists&quot;);</span>
+<span class="fc" id="L115">		tweetService.validatePayload(tweetModel.getMessage());</span>
+<span class="fc" id="L116">		logger.info(VALIDATION_MESSAGE);</span>
+<span class="fc" id="L117">		userService.validateEmailFromAuthHeader(emailId, authHeader.substring(7));</span>
+<span class="fc" id="L118">		logger.info(&quot;Checking if tweet exists and verifying that tweet belongs to the user : {}&quot;, emailId);</span>
+<span class="fc" id="L119">		Tweet tweet = tweetService.findByTweetId(tweetId);</span>
+<span class="fc bfc" id="L120" title="All 2 branches covered.">		if (tweet == null) {</span>
+<span class="fc" id="L121">			logger.info(TWEET_DOESNT_EXIST_WITH_ID, tweetId);</span>
+<span class="fc" id="L122">			throw new CustomException(&quot;Update failed as no tweet exists with given tweetId&quot;);</span>
+		}
+<span class="fc bfc" id="L124" title="All 2 branches covered.">		if (!tweet.getEmailId().equals(emailId)) {</span>
+<span class="fc" id="L125">			logger.info(&quot;You can only update the tweets posted by you&quot;);</span>
+<span class="fc" id="L126">			throw new CustomException(&quot;You can only update the tweets posted by you&quot;);</span>
+		}
+<span class="fc" id="L128">		logger.info(&quot;Valid tweet and is allowed to update&quot;);</span>
+<span class="fc" id="L129">		logger.info(&quot;Updating tweet for user : {}&quot;, emailId);</span>
+<span class="fc" id="L130">		tweet = tweetService.updateTweet(tweet, tweetModel.getMessage());</span>
+<span class="fc" id="L131">		logger.info(&quot;Updated successfully&quot;);</span>
+<span class="fc" id="L132">		return ResponseEntity.ok(tweet);</span>
+	}
+
+	@DeleteMapping(&quot;/{emailId}/delete/{tweetId}&quot;)
+	@ApiOperation(value = &quot;deleteTweet&quot;, notes = &quot;This method helps user to delete his/her tweet&quot;, response = Tweet.class)
+	@ApiResponses(value = { @ApiResponse(code = 200, message = &quot;Tweet Deleted sucessfully&quot;),
+			@ApiResponse(code = 400, message = &quot;Failed to delete the tweet&quot;) })
+	public ResponseEntity&lt;Tweet&gt; deleteTweet(
+			@ApiParam(value = &quot;emailId&quot;, name = &quot;emailId&quot;, type = &quot;String&quot;, example = &quot;abc@gmail.com&quot;, required = true) @PathVariable String emailId,
+			@ApiParam(value = &quot;tweetId&quot;, name = &quot;tweetId&quot;, type = &quot;String&quot;, example = &quot;SAM123&quot;, required = true) @PathVariable String tweetId,
+			@RequestHeader(name = &quot;Authorization&quot;, required = true) String authHeader) {
+<span class="fc" id="L143">		userService.validateEmailFromAuthHeader(emailId, authHeader.substring(7));</span>
+<span class="fc" id="L144">		logger.info(&quot;Checking if tweet exists and verifying that tweet belongs to the user : {}&quot;, emailId);</span>
+<span class="fc" id="L145">		Tweet tweet = tweetService.findByTweetId(tweetId);</span>
+<span class="fc bfc" id="L146" title="All 2 branches covered.">		if (tweet == null) {</span>
+<span class="fc" id="L147">			logger.info(TWEET_DOESNT_EXIST_WITH_ID, tweetId);</span>
+<span class="fc" id="L148">			throw new CustomException(&quot;Delete failed as no tweet exists with given tweetId&quot;);</span>
+		}
+<span class="fc bfc" id="L150" title="All 2 branches covered.">		if (!tweet.getEmailId().equals(emailId)) {</span>
+<span class="fc" id="L151">			logger.info(&quot;You can only delete the tweets posted by you&quot;);</span>
+<span class="fc" id="L152">			throw new CustomException(&quot;You can only delete the tweets posted by you&quot;);</span>
+		}
+<span class="fc" id="L154">		logger.info(&quot;Valid tweet and is allowed to delete&quot;);</span>
+<span class="fc" id="L155">		logger.info(&quot;Deleting tweet for user : {}&quot;, emailId);</span>
+<span class="fc" id="L156">		tweet = tweetService.deleteTweet(tweet);</span>
+<span class="fc" id="L157">		logger.info(&quot;Deleted successfully&quot;);</span>
+<span class="fc" id="L158">		return ResponseEntity.ok(tweet);</span>
+	}
+
+	@PatchMapping(&quot;/{emailId}/like/{tweetId}&quot;)
+	@ApiOperation(value = &quot;updateLikeCount&quot;, notes = &quot;This method helps user give like to a particular tweet&quot;, response = Tweet.class)
+	@ApiResponses(value = { @ApiResponse(code = 200, message = &quot;Tweet like count updated successfully&quot;),
+			@ApiResponse(code = 400, message = &quot;Unable to update the like count&quot;) })
+	public ResponseEntity&lt;Tweet&gt; updateLikeCount(
+			@ApiParam(value = &quot;emailId&quot;, name = &quot;emailId&quot;, type = &quot;String&quot;, example = &quot;abc@gmail.com&quot;, required = true) @PathVariable String emailId,
+			@ApiParam(value = &quot;tweetId&quot;, name = &quot;tweetId&quot;, type = &quot;String&quot;, example = &quot;SAM123&quot;, required = true) @PathVariable String tweetId,
+			@RequestHeader(name = &quot;Authorization&quot;, required = true) String authHeader) {
+<span class="fc" id="L169">		userService.validateEmailFromAuthHeader(emailId, authHeader.substring(7));</span>
+<span class="fc" id="L170">		logger.info(&quot;Checking if tweet exists&quot;);</span>
+<span class="fc" id="L171">		Tweet tweet = tweetService.findByTweetId(tweetId);</span>
+<span class="fc bfc" id="L172" title="All 2 branches covered.">		if (tweet == null) {</span>
+<span class="fc" id="L173">			logger.info(TWEET_DOESNT_EXIST_WITH_ID, tweetId);</span>
+<span class="fc" id="L174">			throw new CustomException(&quot;Update likes failed as no tweet exists with given tweetId&quot;);</span>
+		}
+<span class="fc bfc" id="L176" title="All 2 branches covered.">		if (tweet.getEmailId().equals(emailId)) {</span>
+<span class="fc" id="L177">			logger.info(&quot;You can only like the tweets posted by others&quot;);</span>
+<span class="fc" id="L178">			throw new CustomException(&quot;You can only like the tweets posted by others&quot;);</span>
+		}
+<span class="fc" id="L180">		logger.info(&quot;Valid tweet and is allowed to update likes count&quot;);</span>
+<span class="fc" id="L181">		logger.info(&quot;Updating likes for the tweet : {}&quot;, tweetId);</span>
+<span class="fc" id="L182">		tweet = tweetService.updateLikeCount(tweet);</span>
+<span class="fc" id="L183">		logger.info(&quot;Likes updated successfully&quot;);</span>
+<span class="fc" id="L184">		return ResponseEntity.ok(tweet);</span>
+	}
+
+	@PatchMapping(&quot;/{emailId}/reply/{tweetId}&quot;)
+	@ApiOperation(value = &quot;replyTweet&quot;, notes = &quot;This method helps user to add reply to a tweet&quot;, response = Tweet.class)
+	@ApiResponses(value = { @ApiResponse(code = 200, message = &quot;Reply added to a Tweet successfully&quot;),
+			@ApiResponse(code = 400, message = &quot;Unable to add reply to the tweet&quot;) })
+	public ResponseEntity&lt;Tweet&gt; replyTweet(
+			@ApiParam(value = &quot;emailId&quot;, name = &quot;emailId&quot;, type = &quot;String&quot;, example = &quot;abc@gmail.com&quot;, required = true) @PathVariable String emailId,
+			@ApiParam(value = &quot;tweetId&quot;, name = &quot;tweetId&quot;, type = &quot;String&quot;, example = &quot;SAM123&quot;, required = true) @PathVariable String tweetId,
+			@Valid @RequestBody ReplyDto replyModel,
+			@RequestHeader(name = &quot;Authorization&quot;, required = true) String authHeader) {
+<span class="fc" id="L196">		logger.info(&quot;Validating reply tweet request payload and checking if user exists&quot;);</span>
+<span class="fc" id="L197">		tweetService.validatePayload(replyModel.getMessage());</span>
+<span class="fc" id="L198">		logger.info(VALIDATION_MESSAGE);</span>
+<span class="fc" id="L199">		userService.validateEmailFromAuthHeader(emailId, authHeader.substring(7));</span>
+<span class="fc" id="L200">		logger.info(&quot;Checking if tweet exists&quot;);</span>
+<span class="fc" id="L201">		Tweet tweet = tweetService.findByTweetId(tweetId);</span>
+<span class="fc bfc" id="L202" title="All 2 branches covered.">		if (tweet == null) {</span>
+<span class="fc" id="L203">			logger.info(TWEET_DOESNT_EXIST_WITH_ID, tweetId);</span>
+<span class="fc" id="L204">			throw new CustomException(&quot;Reply failed as no tweet exists with given tweetId&quot;);</span>
+		}
+<span class="fc" id="L206">		logger.info(&quot;Valid tweet and is allowed to reply&quot;);</span>
+<span class="fc" id="L207">		logger.info(&quot;Adding reply for the tweet : {}&quot;, tweetId);</span>
+<span class="fc" id="L208">		replyModel.setEmailId(emailId);</span>
+<span class="fc" id="L209">		tweet = tweetService.addReply(tweet, replyModel);</span>
+<span class="fc" id="L210">		logger.info(&quot;Reply added successfully&quot;);</span>
+<span class="fc" id="L211">		return ResponseEntity.ok(tweet);</span>
+	}
+
+	@GetMapping(&quot;/trends&quot;)
+	@ApiOperation(value = &quot;getTrendingTags&quot;, notes = &quot;This method helps user to get current trending tags&quot;, response = Tweet.class)
+	@ApiResponses(value = { @ApiResponse(code = 200, message = &quot;User able to see trending tags&quot;),
+			@ApiResponse(code = 400, message = &quot;Unable to see trending tags&quot;) })
+	public ResponseEntity&lt;List&lt;Tags&gt;&gt; getTrendingTags() {
+<span class="fc" id="L219">		logger.info(&quot;Fetching all trending tags...&quot;);</span>
+<span class="fc" id="L220">		List&lt;Tags&gt; tags = tweetService.findAllTags();</span>
+<span class="fc bfc" id="L221" title="All 2 branches covered.">		if (tags == null) {</span>
+<span class="fc" id="L222">			logger.info(&quot;No trending tags found&quot;);</span>
+<span class="fc" id="L223">			throw new CustomException(&quot;No trending tags found&quot;);</span>
+		}
+<span class="fc" id="L225">		logger.info(&quot;Trending tags found : {}&quot;, tags);</span>
+<span class="fc" id="L226">		return ResponseEntity.ok(tags);</span>
+	}
+
+	@GetMapping(&quot;/trendByTag/{tagname}&quot;)
+	@ApiOperation(value = &quot;getTrendingTweetsByTagName&quot;, notes = &quot;This method helps user to get tweets based on trending tags&quot;, response = Tweet.class)
+	@ApiResponses(value = { @ApiResponse(code = 200, message = &quot;User able to see tweets based on trending tags&quot;),
+			@ApiResponse(code = 400, message = &quot;Tag Name doesn't exist&quot;) })
+	public ResponseEntity&lt;List&lt;Tweet&gt;&gt; getTrendingTweetsByTagName(
+			@ApiParam(value = &quot;tagname&quot;, name = &quot;tagname&quot;, type = &quot;tagname&quot;, example = &quot;cts&quot;, required = true) @PathVariable String tagname) {
+<span class="fc" id="L235">		logger.info(&quot;Fetching all trending tweets...&quot;);</span>
+<span class="fc" id="L236">		List&lt;Tweet&gt; tweets = tweetService.getTrendingTweets(tagname);</span>
+<span class="pc bpc" id="L237" title="1 of 4 branches missed.">		if (tweets == null || tweets.isEmpty()) {</span>
+<span class="fc" id="L238">			logger.info(&quot;No trending tweets found&quot;);</span>
+<span class="fc" id="L239">			throw new CustomException(&quot;No trending tweets found&quot;);</span>
+		}
+<span class="fc" id="L241">		logger.info(&quot;Trending Tweets found : {}&quot;, tweets);</span>
+<span class="fc" id="L242">		return ResponseEntity.ok(tweets);</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

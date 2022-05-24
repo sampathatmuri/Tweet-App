@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UserController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">FSE-TWEET-APP</a> &gt; <a href="index.source.html" class="el_package">com.tweetapp.controller</a> &gt; <span class="el_source">UserController.java</span></div><h1>UserController.java</h1><pre class="source lang-java linenums">package com.tweetapp.controller;
+
+import java.util.List;
+
+import javax.validation.Valid;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.tweetapp.document.Tweet;
+import com.tweetapp.document.User;
+import com.tweetapp.dto.PasswordReset;
+import com.tweetapp.exception.CustomException;
+import com.tweetapp.service.UserService;
+
+import io.swagger.annotations.ApiOperation;
+import io.swagger.annotations.ApiParam;
+import io.swagger.annotations.ApiResponse;
+import io.swagger.annotations.ApiResponses;
+
+@CrossOrigin(origins = &quot;*&quot;)
+@RestController
+<span class="fc" id="L31">public class UserController {</span>
+
+<span class="fc" id="L33">	private static final Logger logger = LoggerFactory.getLogger(UserController.class);</span>
+
+	@Autowired
+	private UserService userService;
+
+	@GetMapping(&quot;/users/all&quot;)
+	@ApiOperation(value = &quot;getAllUsers&quot;, notes = &quot;This method helps user to see other users information&quot;, response = User.class)
+	@ApiResponses(value = { @ApiResponse(code = 200, message = &quot;User able to see other users info&quot;),
+			@ApiResponse(code = 400, message = &quot;Unable to other user details&quot;) })
+	public ResponseEntity&lt;List&lt;User&gt;&gt; getAllUsers() {
+<span class="fc" id="L43">		logger.info(&quot;Fetching all users...&quot;);</span>
+<span class="fc" id="L44">		List&lt;User&gt; users = userService.findAllUsers();</span>
+<span class="fc bfc" id="L45" title="All 2 branches covered.">		if (users == null) {</span>
+<span class="fc" id="L46">			logger.info(&quot;No users found&quot;);</span>
+<span class="fc" id="L47">			throw new CustomException(&quot;No users found&quot;);</span>
+		}
+<span class="fc" id="L49">		logger.info(&quot;Users found : {}&quot;, users);</span>
+<span class="fc" id="L50">		return ResponseEntity.ok(users);</span>
+	}
+
+	@GetMapping(&quot;/user/search/{emailId}&quot;)
+	@ApiOperation(value = &quot;searchUser&quot;, notes = &quot;This method helps user to see user details based on user id&quot;, response = Tweet.class)
+	@ApiResponses(value = { @ApiResponse(code = 200, message = &quot;User able to see the info&quot;),
+			@ApiResponse(code = 400, message = &quot;User unable to see the info&quot;) })
+	public ResponseEntity&lt;User&gt; searchUser(
+			@ApiParam(value = &quot;emailId&quot;, name = &quot;emailId&quot;, type = &quot;String&quot;, example = &quot;abc@gmail.com&quot;, required = true) @PathVariable String emailId) {
+<span class="fc" id="L59">		logger.info(&quot;Searching user with emailId {}&quot;, emailId);</span>
+<span class="fc" id="L60">		User user = userService.findUserByEmailId(emailId);</span>
+<span class="fc bfc" id="L61" title="All 2 branches covered.">		if (user == null) {</span>
+<span class="fc" id="L62">			logger.info(&quot;Search Failed!!!&quot;);</span>
+<span class="fc" id="L63">			logger.info(&quot;User not found with emailId: {}&quot;, emailId);</span>
+<span class="fc" id="L64">			throw new CustomException(&quot;User not found with emailId: &quot; + emailId);</span>
+		}
+<span class="fc" id="L66">		logger.info(&quot;User found : {}&quot;, user);</span>
+<span class="fc" id="L67">		return ResponseEntity.ok(user);</span>
+	}
+
+	@PutMapping(&quot;/{emailId}/forgot&quot;)
+	@ApiOperation(value = &quot;resetPassword&quot;, notes = &quot;This method helps user to reset their password&quot;, response = String.class)
+	@ApiResponses(value = { @ApiResponse(code = 200, message = &quot;Password updated successfully&quot;),
+			@ApiResponse(code = 400, message = &quot;Password was not updated&quot;) })
+	public ResponseEntity&lt;String&gt; resetPassword(
+			@ApiParam(value = &quot;emailId&quot;, name = &quot;emailId&quot;, type = &quot;String&quot;, example = &quot;abc@gmail.com&quot;, required = true) @PathVariable String emailId,
+			@Valid @RequestBody PasswordReset passwordReset) {
+<span class="fc" id="L77">		logger.info(&quot;Trying to reset password for user: {}&quot;, emailId);</span>
+<span class="fc" id="L78">		logger.info(&quot;Verifying that reset request belongs to the currently loggedin user&quot;);</span>
+<span class="fc" id="L79">		userService.validateIfEmailIdExists(emailId);</span>
+<span class="fc" id="L80">		User user = userService.findUserByEmailId(emailId);</span>
+<span class="fc" id="L81">		logger.info(&quot;Valid user and is allowed to change password&quot;);</span>
+<span class="fc" id="L82">		logger.info(&quot;Now changing password...&quot;);</span>
+		// Save New Password
+<span class="fc" id="L84">		userService.changePassword(user, passwordReset.getNewPassword());</span>
+<span class="fc" id="L85">		logger.info(&quot;Password Changed Successfully&quot;);</span>
+<span class="fc" id="L86">		return ResponseEntity.ok(&quot;Password Changed Successfully&quot;);</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>
